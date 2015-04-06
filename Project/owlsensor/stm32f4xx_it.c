@@ -149,12 +149,14 @@ void SysTick_Handler(void)
 }
 extern uint8_t jpg_flag;
 extern uint8_t key_flag;
+extern void process(uint8_t flag, uint16_t bufLen);
 void DCMI_IRQHandler(void)
 {  	   
 	if (DCMI_GetITStatus(DCMI_IT_FRAME) != RESET) 
 	{		
 		DCMI_ClearITPendingBit(DCMI_IT_FRAME); 			
 		jpg_flag = 1;
+        process(0, 0);
 	}	
 }
 /******************************************************************************/

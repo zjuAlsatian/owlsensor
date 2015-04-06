@@ -41,6 +41,8 @@
 
 void Delay(__IO uint32_t nTime);
 void TimingDelay_Decrement(void);
+void process(uint8_t flag);
+
 static __IO uint32_t TimingDelay;
 uint32_t JpegDataCnt=0;
 extern uint8_t JpegBuffer[1024*33];
@@ -54,6 +56,8 @@ uint8_t key_flag=0;
 
 /* Private functions ---------------------------------------------------------*/
 
+#define SEND_TO_COM 1
+
 /**
   * @brief  Main program
   * @param  None
@@ -61,115 +65,120 @@ uint8_t key_flag=0;
   */
 int main(void)
 {
-  /*!< At this stage the microcontroller clock setting is already configured, 
+    /*!< At this stage the microcontroller clock setting is already configured, 
        this is done through SystemInit() function which is called from startup
        files (startup_stm32f40_41xxx.s/startup_stm32f427_437xx.s/startup_stm32f429_439xx.s)
        before to branch to application main. 
        To reconfigure the default setting of SystemInit() function, refer to
        system_stm32f4xx.c file.
      */     
-	GPIO_InitTypeDef GPIO_InitStructure;
-	OV2640_IDTypeDef OV2640ID;
-	RCC_ClocksTypeDef SYS_Clocks;
-	uint32_t i=0;
-		if (SysTick_Config(SystemCoreClock / 1000))
-  	{ 
-	    /* Capture error */ 
-	    while (1);
-  	}
-  /* USART configuration */
-  USART_Config();
-       
-  /* Output a message on Hyperterminal using printf function */
-  
-  RCC_GetClocksFreq(&SYS_Clocks);
-	printf("\r\nSYSCLK:%dM\r\n",SYS_Clocks.SYSCLK_Frequency/1000000);
-	printf("HCLK:%dM\r\n",SYS_Clocks.HCLK_Frequency/1000000);
-	printf("PCLK1:%dM\r\n",SYS_Clocks.PCLK1_Frequency/1000000);
-	printf("PCLK2:%dM\r\n",SYS_Clocks.PCLK2_Frequency/1000000);	
-	printf("\n\r DCMI Example\n\r");
-	OV2640_Init();
-	Delay(1);		
-	if(DCMI_OV2640_ReadID(&OV2640ID)==0)
-	{	
-		if(OV2640ID.Manufacturer_ID1==0x7f && OV2640ID.Manufacturer_ID2==0xa2 
-			&& OV2640ID.Version==0x26 && OV2640ID.PID==0x42){
- 			printf("OV2640 ID:0x%x 0x%x 0x%x 0x%x\r\n",
- 				OV2640ID.Manufacturer_ID1, OV2640ID.Manufacturer_ID2, OV2640ID.PID, OV2640ID.Version);
-		}
-		else{
- 			printf("OV2640 ID is Error!\r\n");
-		}			
-	}	
-	
-		OV2640_JPEGConfig(JPEG_320x240);
-		OV2640_BrightnessConfig(0x20);	
-		OV2640_AutoExposure(2);	
-		Delay(10);
+    GPIO_InitTypeDef GPIO_InitStructure;
+    OV2640_IDTypeDef OV2640ID;
+    RCC_ClocksTypeDef SYS_Clocks;
 
-			
-	  Delay(10);		
-	RCC_APB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-	GPIO_InitStructure.GPIO_Pin = GPIO_WAKEUP_PIN;
-	GPIO_Init(GPIO_WAKEUP_PORT, &GPIO_InitStructure);
-  while (1)
-  {
-	if(GPIO_ReadInputDataBit(GPIO_WAKEUP_PORT,GPIO_WAKEUP_PIN))
-		{
-		 key_flag = 1;
-	    DMA_Cmd(DMA2_Stream1, ENABLE);		
-			DCMI_Cmd(ENABLE);
-			DCMI_CaptureCmd(ENABLE);
-			//printf("key_flag =1 \r\n");
-			while(GPIO_ReadInputDataBit(GPIO_WAKEUP_PORT,GPIO_WAKEUP_PIN));
-		}
-		
-		
-		
-		if(jpg_flag)//&&key_flag
-		{
-			DCMI_Cmd(DISABLE); 
-			DCMI_CaptureCmd(DISABLE);
-			DMA_Cmd(DMA2_Stream1, DISABLE);
-			if( (JpegBuffer[0]==0xFF)&&(JpegBuffer[1]==0xD8) )
-			{
-					while ( !( (JpegBuffer[JpegBufferLen - JpegDataCnt-2]==0xFF) && (JpegBuffer[JpegBufferLen-JpegDataCnt-1]==0xD9) ) ) //从数据包的尾开始检索  
-				{		
-					JpegDataCnt++;
-				}				
-				 for(i = 0; i < (JpegBufferLen - JpegDataCnt); i++)	//sizeof(JpegBuffer)
-				{
-					USART_Transmit(JpegBuffer[i]);
-				} 
-			}
-			JpegDataCnt = 0;
-			jpg_flag = 0;
-			key_flag = 0;	
-	
-		}
-  }
+    if (SysTick_Config(SystemCoreClock / 1000))
+    { 
+        /* Capture error */ 
+        while (1);
+    }
+    /* USART configuration */
+    USART_Config();
+
+    /* Output a message on Hyperterminal using printf function */
+    RCC_GetClocksFreq(&SYS_Clocks);
+    printf("\r\nSYSCLK:%dM\r\n",SYS_Clocks.SYSCLK_Frequency/1000000);
+    printf("HCLK:%dM\r\n",SYS_Clocks.HCLK_Frequency/1000000);
+    printf("PCLK1:%dM\r\n",SYS_Clocks.PCLK1_Frequency/1000000);
+    printf("PCLK2:%dM\r\n",SYS_Clocks.PCLK2_Frequency/1000000);    
+    printf("\r\n DCMI Example\r\n");
+    OV2640_Init();
+    Delay(1);
+    if(DCMI_OV2640_ReadID(&OV2640ID)==0)
+    {
+        if(OV2640ID.Manufacturer_ID1==0x7f &&
+           OV2640ID.Manufacturer_ID2==0xa2 &&
+           OV2640ID.Version==0x26 &&
+           OV2640ID.PID==0x42){
+             printf("OV2640 ID:0x%x 0x%x 0x%x 0x%x\r\n",
+                 OV2640ID.Manufacturer_ID1, OV2640ID.Manufacturer_ID2, OV2640ID.PID, OV2640ID.Version);
+        }
+        else{
+             printf("OV2640 ID is Error!\r\n");
+        }            
+    }
+    
+    OV2640_JPEGConfig(JPEG_176x144);
+    OV2640_BrightnessConfig(0x20);    
+    OV2640_AutoExposure(2);    
+
+    Delay(10);
+    Delay(10);
+    
+    RCC_APB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructure.GPIO_Pin = GPIO_WAKEUP_PIN;
+    GPIO_Init(GPIO_WAKEUP_PORT, &GPIO_InitStructure);
+    
+    while (1)
+    {
+        if(GPIO_ReadInputDataBit(GPIO_WAKEUP_PORT,GPIO_WAKEUP_PIN))
+        {
+            key_flag = 1;
+            DMA_Cmd(DMA2_Stream1, ENABLE);        
+            DCMI_Cmd(ENABLE);
+            DCMI_CaptureCmd(ENABLE);
+            printf("start capture \r\n");
+            while(GPIO_ReadInputDataBit(GPIO_WAKEUP_PORT,GPIO_WAKEUP_PIN));
+        }
+  } 
+}
+
+void process(uint8_t flag)
+{
+    uint32_t i=0;
+
+    DCMI_Cmd(DISABLE); 
+    DCMI_CaptureCmd(DISABLE);
+    DMA_Cmd(DMA2_Stream1, DISABLE);
+
+    if( (JpegBuffer[0]==0xFF)&&(JpegBuffer[1]==0xD8) )
+    {
+        while ( !( (JpegBuffer[JpegBufferLen - JpegDataCnt-2]==0xFF) &&
+                (JpegBuffer[JpegBufferLen-JpegDataCnt-1]==0xD9) ) ) //从数据包的尾开始检索  
+        {
+            JpegDataCnt++;
+        }
+        printf("Start process......\nData lens: %d\n", JpegBufferLen - JpegDataCnt);
+#if SEND_TO_COM
+        for(i = 0; i < (JpegBufferLen - JpegDataCnt); i++)    //sizeof(JpegBuffer)
+        {
+            USART_Transmit(JpegBuffer[i]);
+        }
+#else
+        
+#endif
+    }
+    JpegDataCnt = 0;
+    jpg_flag = 0;
 }
 
 void Delay(__IO uint32_t nTime)
 { 
-  TimingDelay = nTime;
+    TimingDelay = nTime;
 
-  while(TimingDelay != 0)
-  {}
+    while(TimingDelay != 0){}
 }
 
 void TimingDelay_Decrement(void)
 {
-  if (TimingDelay != 0x00)
-  { 
-    TimingDelay--;
-  }
+    if (TimingDelay != 0x00)
+    { 
+        TimingDelay--;
+    }
 }
-
 
 #ifdef  USE_FULL_ASSERT
 

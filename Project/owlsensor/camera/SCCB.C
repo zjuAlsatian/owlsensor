@@ -54,7 +54,6 @@ void SCCB_GPIO_Config(void)
 	
 	I2C_Init(Open407V_SCCB, &SCCB_InitStructure);
 	I2C_Cmd(Open407V_SCCB, ENABLE);
-
 	
 	I2C_AcknowledgeConfig(Open407V_SCCB, ENABLE);	
 }
